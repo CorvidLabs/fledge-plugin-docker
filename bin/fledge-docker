@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""
+fledge-plugin-docker
+
+Docker build / push / compose helpers wired to your project.
+Demonstrates the fledge-v1 protocol with the `exec` capability.
+
+Subcommands:
+  build           docker build with project name as the tag (default action)
+  push            docker push for the project image
+  up              docker compose up (detached unless --foreground)
+  down            docker compose down
+  logs            docker compose logs --follow
+
+Flags:
+  --tag <NAME>    Image name override (default: project name from init)
+  --version <V>   Image version tag (default: "latest")
+  --registry <R>  Push registry prefix (e.g. "ghcr.io/myorg")
+  --file <PATH>   Dockerfile path (default: ./Dockerfile)
+  --foreground    For `up`, run attached
+  --json          Machine-readable envelope
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def send(msg):
+    print(json.dumps(msg), flush=True)
+
+
+def recv():
+    line = sys.stdin.readline()
+    if not line:
+        sys.exit(0)
+    return json.loads(line)
+
+
+def parse_args(args):
+    sub = "build"
+    if args and not args[0].startswith("-"):
+        sub = args[0]
+        args = args[1:]
+
+    out = {
+        "sub": sub, "json": False,
+        "tag": None, "version": "latest", "registry": None,
+        "file": "Dockerfile", "foreground": False,
+        "extra": [],
+    }
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--json":
+            out["json"] = True
+        elif a == "--tag" and i + 1 < len(args):
+            out["tag"] = args[i + 1]; i += 1
+        elif a == "--version" and i + 1 < len(args):
+            out["version"] = args[i + 1]; i += 1
+        elif a == "--registry" and i + 1 < len(args):
+            out["registry"] = args[i + 1]; i += 1
+        elif a == "--file" and i + 1 < len(args):
+            out["file"] = args[i + 1]; i += 1
+        elif a == "--foreground":
+            out["foreground"] = True
+        else:
+            out["extra"].append(a)
+        i += 1
+    return out
+
+
+def exec_via_fledge(command: str, timeout: int = 1800):
+    send({"type": "exec", "id": "1", "command": command, "timeout": timeout})
+    return recv().get("value", {})
+
+
+def image_ref(opts, project_name):
+    name = opts["tag"] or project_name or "app"
+    base = f"{name}:{opts['version']}"
+    if opts["registry"]:
+        return f"{opts['registry'].rstrip('/')}/{base}"
+    return base
+
+
+def shell_quote(s: str):
+    return "'" + s.replace("'", "'\\''") + "'"
+
+
+def main():
+    init = recv()
+    args = init.get("args", [])
+    project = init.get("project") or {}
+    root = Path(project.get("root") or os.getcwd())
+    project_name = project.get("name")
+    caps = init.get("capabilities") or {}
+
+    if not caps.get("exec"):
+        send({"type": "log", "level": "error",
+              "message": "exec capability not granted; cannot run docker"})
+        sys.exit(126)
+
+    opts = parse_args(args)
+    sub = opts["sub"]
+    image = image_ref(opts, project_name)
+
+    if sub == "build":
+        if not (root / opts["file"]).is_file():
+            send({"type": "log", "level": "error",
+                  "message": f"Dockerfile not found at {opts['file']}"})
+            sys.exit(2)
+        cmd = f"docker build -t {shell_quote(image)} -f {shell_quote(opts['file'])} ."
+        send({"type": "progress", "message": f"Building {image}"})
+        result = exec_via_fledge(cmd)
+        send({"type": "progress", "done": True})
+        emit_result(opts, "docker_build", cmd, image, result)
+        sys.exit(0 if result.get("code") == 0 else 1)
+
+    if sub == "push":
+        if not opts["registry"]:
+            send({"type": "log", "level": "warn",
+                  "message": "No --registry given; the image must already be tagged for push"})
+        cmd = f"docker push {shell_quote(image)}"
+        send({"type": "progress", "message": f"Pushing {image}"})
+        result = exec_via_fledge(cmd)
+        send({"type": "progress", "done": True})
+        emit_result(opts, "docker_push", cmd, image, result)
+        sys.exit(0 if result.get("code") == 0 else 1)
+
+    if sub == "up":
+        if not (root / "docker-compose.yml").is_file() and not (root / "compose.yaml").is_file():
+            send({"type": "log", "level": "error",
+                  "message": "No docker-compose.yml or compose.yaml found in project root"})
+            sys.exit(2)
+        flags = "" if opts["foreground"] else " -d"
+        cmd = f"docker compose up{flags}"
+        result = exec_via_fledge(cmd, timeout=3600)
+        emit_result(opts, "docker_up", cmd, None, result)
+        sys.exit(0 if result.get("code") == 0 else 1)
+
+    if sub == "down":
+        cmd = "docker compose down"
+        result = exec_via_fledge(cmd)
+        emit_result(opts, "docker_down", cmd, None, result)
+        sys.exit(0 if result.get("code") == 0 else 1)
+
+    if sub == "logs":
+        cmd = "docker compose logs --tail=200 --follow"
+        result = exec_via_fledge(cmd, timeout=3600)
+        emit_result(opts, "docker_logs", cmd, None, result)
+        sys.exit(0 if result.get("code") == 0 else 1)
+
+    send({"type": "log", "level": "error", "message": f"Unknown subcommand: {sub}"})
+    sys.exit(2)
+
+
+def emit_result(opts, action, command, image, result):
+    code = result.get("code", -1)
+    stdout = result.get("stdout", "")
+    stderr = result.get("stderr", "")
+
+    if opts["json"]:
+        send({"type": "output", "text": json.dumps({
+            "schema_version": 1,
+            "action": action,
+            "command": command,
+            "image": image,
+            "exit_code": code,
+            "ok": code == 0,
+        }) + "\n"})
+        return
+
+    if stdout:
+        send({"type": "output", "text": stdout if stdout.endswith("\n") else stdout + "\n"})
+    if code != 0:
+        if stderr:
+            send({"type": "log", "level": "error", "message": stderr.strip()})
+        send({"type": "output", "text": f"docker exit {code}\n"})
+    else:
+        if image:
+            send({"type": "output", "text": f"OK ({image})\n"})
+
+
+if __name__ == "__main__":
+    main()

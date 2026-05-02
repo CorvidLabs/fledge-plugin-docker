@@ -1,0 +1,16 @@
+[plugin]
+name = "fledge-plugin-docker"
+version = "0.1.0"
+description = "Docker build / push / compose helpers wired to your project"
+author = "CorvidLabs"
+protocol = "fledge-v1"
+
+# Needs `exec` to run docker commands.
+
+[capabilities]
+exec = true
+
+[[commands]]
+name = "docker"
+description = "Project-aware docker build, push, and compose helpers"
+binary = "bin/fledge-docker"
