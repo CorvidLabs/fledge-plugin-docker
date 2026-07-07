@@ -2,7 +2,6 @@
 
 import importlib.util
 import importlib.machinery
-import sys
 from pathlib import Path
 
 # Load the plugin script as a module (it has no .py extension).
