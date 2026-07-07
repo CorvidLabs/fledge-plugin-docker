@@ -56,13 +56,17 @@ def parse_args(args):
         if a == "--json":
             out["json"] = True
         elif a == "--tag" and i + 1 < len(args):
-            out["tag"] = args[i + 1]; i += 1
+            out["tag"] = args[i + 1]
+            i += 1
         elif a == "--version" and i + 1 < len(args):
-            out["version"] = args[i + 1]; i += 1
+            out["version"] = args[i + 1]
+            i += 1
         elif a == "--registry" and i + 1 < len(args):
-            out["registry"] = args[i + 1]; i += 1
+            out["registry"] = args[i + 1]
+            i += 1
         elif a == "--file" and i + 1 < len(args):
-            out["file"] = args[i + 1]; i += 1
+            out["file"] = args[i + 1]
+            i += 1
         elif a == "--foreground":
             out["foreground"] = True
         else:
