@@ -1,0 +1,5 @@
+[registry]
+name = "fledge-plugin-docker-trust-wave4"
+
+[specs]
+docker = "specs/docker/docker.spec.md"
