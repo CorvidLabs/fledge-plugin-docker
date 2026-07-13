@@ -7,5 +7,5 @@ spec: docker.spec.md
 ### Integration Tests
 
 - `ruff check bin/fledge-docker tests/`
-- `python -m py_compile bin/fledge-docker`
+- `python3 -m py_compile bin/fledge-docker`
 - `pytest tests/ -v`
