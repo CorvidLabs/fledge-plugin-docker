@@ -1,0 +1,9 @@
+# fledge.toml: project task definitions
+[tasks]
+lint = "ruff check bin/fledge-docker tests/"
+compile = "python3 -m py_compile bin/fledge-docker"
+test = "pytest tests/ -v"
+
+[lanes.verify]
+description = "Lint, compile-check, and test the Docker plugin"
+steps = ["lint", "compile", "test"]

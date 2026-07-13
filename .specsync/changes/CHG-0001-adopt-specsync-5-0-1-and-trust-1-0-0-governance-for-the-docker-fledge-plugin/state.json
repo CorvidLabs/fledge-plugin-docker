@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0001-adopt-specsync-5-0-1-and-trust-1-0-0-governance-for-the-docker-fledge-plugin",
+  "slug": "adopt-specsync-5-0-1-and-trust-1-0-0-governance-for-the-docker-fledge-plugin",
+  "title": "Adopt SpecSync 5.0.1 and Trust 1.0.0 governance for the Docker Fledge plugin",
+  "description": "Adopt SpecSync 5.0.1 and Trust 1.0.0 governance for the Docker Fledge plugin",
+  "kind": "migration",
+  "state": "accepted",
+  "base_commit": "7e1fcf3880900b83457c1acc2f04f9b2c57ee473",
+  "created_at": 1783877208,
+  "updated_at": 1783951457,
+  "affected_specs": [],
+  "affected_paths": [
+    "bin/",
+    "tests/",
+    ".github/",
+    ".specsync/",
+    "specs/",
+    ".trust.toml",
+    "fledge.toml"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "The migration documents existing Docker plugin behavior and adds governance configuration without changing runtime semantics.",
+  "acceptance_criteria": [
+    "SpecSync strict check passes at explicit advisory threshold 0; all four integrations report installed; Trust doctor and verification pass; Ruff",
+    "Python compile",
+    "and all 22 tests remain green"
+  ],
+  "selected_artifacts": [
+    "context",
+    "research",
+    "design",
+    "plan",
+    "tasks",
+    "testing",
+    "docs"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "yes",
+    "public_contract": "no"
+  }
+}
