@@ -1,7 +1,7 @@
 """Tests for argument parsing and command construction in fledge-docker."""
 
-import importlib.util
 import importlib.machinery
+import importlib.util
 from pathlib import Path
 
 # Load the plugin script as a module (it has no .py extension).
